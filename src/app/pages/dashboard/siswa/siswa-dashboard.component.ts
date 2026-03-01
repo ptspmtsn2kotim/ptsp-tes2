@@ -47,6 +47,12 @@ import { io, Socket } from 'socket.io-client';
               Form Pengajuan Layanan
             </h2>
             <form [formGroup]="requestForm" (ngSubmit)="onSubmit()" class="space-y-6">
+              @if (submitError()) {
+                <div class="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                  <span class="material-icons text-red-500 mt-0.5">error_outline</span>
+                  <p class="text-sm text-red-700">{{ submitError() }}</p>
+                </div>
+              }
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label for="nama" class="block text-sm font-medium text-neutral-700">Nama Lengkap</label>
@@ -231,6 +237,7 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
   requests = signal<RequestItem[]>([]);
   showForm = signal(false);
   isSubmitting = signal(false);
+  submitError = signal<string | null>(null);
   selectedRequest = signal<RequestItem | null>(null);
   
   notifications = signal<{id: number, serviceName: string, action: string, by: string, status: string, role: string}[]>([]);
@@ -263,7 +270,13 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
   setupSocket() {
     const user = this.authService.currentUser();
     if (user && user.role === 'Siswa' && typeof window !== 'undefined') {
-      this.socket = io({ transports: ['polling'] });
+      this.socket = io({ transports: ['polling'], reconnectionAttempts: 3 });
+      
+      this.socket.on('connect_error', () => {
+        console.warn('Socket connection failed, disabling real-time notifications.');
+        this.socket.disconnect();
+      });
+
       this.socket.emit('join', user.id);
       
       this.socket.on('request_status_changed', (data) => {
@@ -295,12 +308,13 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
   onSubmit() {
     if (this.requestForm.valid) {
       this.isSubmitting.set(true);
+      this.submitError.set(null);
       
       const payload = {
         serviceId: this.requestForm.value.serviceId,
         data: {
           description: this.requestForm.value.description
-        } as Record<string, any>
+        } as Record<string, unknown>
       };
 
       if (navigator.geolocation) {
@@ -312,21 +326,21 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
           (error) => {
             this.isSubmitting.set(false);
             if (error.code === error.PERMISSION_DENIED) {
-              alert("Setiap Pengajuan Wajib Mengizinkan Lokasi. Izinkan Lokasi Anda!");
+              this.submitError.set("Setiap Pengajuan Wajib Mengizinkan Lokasi. Izinkan Lokasi Anda!");
             } else {
-              alert("Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.");
+              this.submitError.set("Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.");
             }
           },
           { timeout: 10000, enableHighAccuracy: true }
         );
       } else {
-        alert("Browser Anda tidak mendukung fitur lokasi.");
+        this.submitError.set("Browser Anda tidak mendukung fitur lokasi.");
         this.isSubmitting.set(false);
       }
     }
   }
 
-  private sendRequest(payload: any) {
+  private sendRequest(payload: { serviceId: string | null | undefined, data: Record<string, unknown> }) {
     this.apiService.createRequest(payload).subscribe({
       next: () => {
         this.isSubmitting.set(false);
@@ -336,7 +350,7 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.isSubmitting.set(false);
-        alert('Gagal membuat pengajuan.');
+        this.submitError.set('Gagal membuat pengajuan.');
       }
     });
   }

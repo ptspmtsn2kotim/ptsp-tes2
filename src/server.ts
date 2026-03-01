@@ -5,11 +5,14 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
-import {join} from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 
-const browserDistFolder = join(import.meta.dirname, '../browser');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const browserDistFolder = join(__dirname, '../browser');
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,9 +41,10 @@ app.use('/api', (req, res, next) => {
 });
 
 // Handle socket.io requests through the Express app for dev server compatibility
-app.use('/socket.io', (req, res, next) => {
+app.use('/socket.io', (req, res) => {
   // Fix req.url for socket.io engine
   req.url = '/socket.io' + req.url;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   io.engine.handleRequest(req as any, res as any);
 });
 

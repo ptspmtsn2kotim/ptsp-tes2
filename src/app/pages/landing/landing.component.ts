@@ -269,6 +269,13 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
               } @else {
                 <p class="text-neutral-600 mb-6 text-sm">{{ selectedService()?.description }}</p>
                 
+                @if (submitError()) {
+                  <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                    <span class="material-icons text-red-500 mt-0.5">error_outline</span>
+                    <p class="text-sm text-red-700">{{ submitError() }}</p>
+                  </div>
+                }
+                
                 <form [formGroup]="formGroup" (ngSubmit)="submitForm()" class="space-y-5">
                   @if (isPermohonan()) {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -452,6 +459,7 @@ export class LandingComponent implements OnInit {
   submitForm() {
     if (this.formGroup.valid && this.selectedService()) {
       this.isSubmitting.set(true);
+      this.submitError.set(null);
       
       const payload = { ...this.formGroup.value };
       
@@ -464,21 +472,21 @@ export class LandingComponent implements OnInit {
           (error) => {
             this.isSubmitting.set(false);
             if (error.code === error.PERMISSION_DENIED) {
-              alert("Setiap Pengajuan Wajib Mengizinkan Lokasi. Izinkan Lokasi Anda!");
+              this.submitError.set("Setiap Pengajuan Wajib Mengizinkan Lokasi. Izinkan Lokasi Anda!");
             } else {
-              alert("Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.");
+              this.submitError.set("Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.");
             }
           },
           { timeout: 10000, enableHighAccuracy: true }
         );
       } else {
-        alert("Browser Anda tidak mendukung fitur lokasi.");
+        this.submitError.set("Browser Anda tidak mendukung fitur lokasi.");
         this.isSubmitting.set(false);
       }
     }
   }
 
-  private sendRequest(payload: any) {
+  private sendRequest(payload: Record<string, unknown>) {
     this.apiService.submitPublicRequest(this.selectedService()!.id, payload).subscribe({
       next: () => {
         this.isSubmitting.set(false);
@@ -487,7 +495,7 @@ export class LandingComponent implements OnInit {
       },
       error: () => {
         this.isSubmitting.set(false);
-        alert('Gagal mengirim pengajuan. Silakan coba lagi.');
+        this.submitError.set('Gagal mengirim pengajuan. Silakan coba lagi.');
       }
     });
   }
