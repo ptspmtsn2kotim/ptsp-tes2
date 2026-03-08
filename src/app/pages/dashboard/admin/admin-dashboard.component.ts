@@ -13,25 +13,6 @@ import { DatePipe, NgClass } from '@angular/common';
     <div class="min-h-screen bg-neutral-50 font-sans flex flex-col">
       <app-navbar></app-navbar>
 
-      <!-- Toast Notifications -->
-      <div class="fixed top-20 right-4 z-50 flex flex-col gap-2">
-        @for (toast of toastMessages(); track toast.id) {
-          <div class="bg-white border-l-4 shadow-lg rounded-r-lg p-4 max-w-sm flex items-start gap-3 animate-fade-in-up"
-               [ngClass]="{'border-emerald-500': toast.type === 'success', 'border-red-500': toast.type === 'error'}">
-            <span class="material-icons mt-0.5" [ngClass]="{'text-emerald-500': toast.type === 'success', 'text-red-500': toast.type === 'error'}">
-              {{ toast.type === 'success' ? 'check_circle' : 'error_outline' }}
-            </span>
-            <div class="flex-grow">
-              <h4 class="text-sm font-bold text-neutral-900">{{ toast.title }}</h4>
-              <p class="text-xs text-neutral-600 mt-1">{{ toast.message }}</p>
-            </div>
-            <button (click)="removeToast(toast.id)" class="text-neutral-400 hover:text-neutral-600">
-              <span class="material-icons text-sm">close</span>
-            </button>
-          </div>
-        }
-      </div>
-
       <div class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         <div class="flex items-center justify-between mb-8">
           <h1 class="text-3xl font-bold text-neutral-900">Admin Dashboard</h1>
@@ -233,17 +214,9 @@ import { DatePipe, NgClass } from '@angular/common';
                       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex items-center gap-3">
                           <button (click)="viewDetails(req)" class="text-emerald-600 hover:text-emerald-900 flex items-center gap-1">
-                            <span class="material-icons text-sm">visibility</span> Detail
+                            <span class="material-icons text-sm">visibility</span> Detail & Tindakan
                           </button>
                           @if (authService.currentUser()?.role === 'Admin') {
-                            @if (canVerifyRequest(req)) {
-                              <button (click)="processRequestDirect(req, 'approve')" class="text-emerald-600 hover:text-emerald-900 flex items-center gap-1">
-                                <span class="material-icons text-sm">check_circle</span> Setujui
-                              </button>
-                              <button (click)="processRequestDirect(req, 'reject')" class="text-red-600 hover:text-red-900 flex items-center gap-1">
-                                <span class="material-icons text-sm">cancel</span> Tolak
-                              </button>
-                            }
                             <button (click)="deleteRequest(req.id)" class="text-red-600 hover:text-red-900 flex items-center gap-1">
                               <span class="material-icons text-sm">delete</span> Hapus
                             </button>
@@ -409,16 +382,7 @@ import { DatePipe, NgClass } from '@angular/common';
         </div>
       }
     </div>
-  `,
-  styles: [`
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-in-up {
-      animation: fadeInUp 0.3s ease-out forwards;
-    }
-  `]
+  `
 })
 export class AdminDashboardComponent implements OnInit {
   private fb = inject(FormBuilder);
@@ -434,8 +398,6 @@ export class AdminDashboardComponent implements OnInit {
   selectedRequest = signal<RequestItem | null>(null);
   showRejectReason = signal(false);
   rejectReason = signal('');
-  toastMessages = signal<{id: number, type: 'success' | 'error', title: string, message: string}[]>([]);
-  private toastCounter = 0;
 
   userForm = this.fb.group({
     name: ['', Validators.required],
@@ -469,16 +431,6 @@ export class AdminDashboardComponent implements OnInit {
     this.apiService.getRequests().subscribe(data => this.requests.set(data));
   }
 
-  showToast(type: 'success' | 'error', title: string, message: string) {
-    const id = this.toastCounter++;
-    this.toastMessages.update(msgs => [...msgs, { id, type, title, message }]);
-    setTimeout(() => this.removeToast(id), 5000);
-  }
-
-  removeToast(id: number) {
-    this.toastMessages.update(msgs => msgs.filter(m => m.id !== id));
-  }
-
   getObjectKeys(obj: unknown): string[] {
     if (!obj || typeof obj !== 'object') return [];
     return Object.keys(obj as Record<string, unknown>);
@@ -498,39 +450,8 @@ export class AdminDashboardComponent implements OnInit {
   canVerify(): boolean {
     const req = this.selectedRequest();
     if (!req) return false;
-    return this.canVerifyRequest(req);
-  }
-
-  canVerifyRequest(req: RequestItem): boolean {
     if (req.status === 'Ditolak' || req.status === 'Selesai') return false;
     return true; // Admin can verify anything that isn't finished
-  }
-
-  processRequestDirect(req: RequestItem, action: 'approve' | 'reject') {
-    let reason: string | undefined;
-    if (action === 'reject') {
-      const input = prompt('Masukkan alasan penolakan:');
-      if (input === null) return; // Cancelled
-      if (input.trim() === '') {
-        this.showToast('error', 'Gagal', 'Alasan penolakan harus diisi.');
-        return;
-      }
-      reason = input.trim();
-    }
-
-    if (action === 'approve' && !confirm('Apakah Anda yakin ingin menyetujui pengajuan ini?')) {
-      return;
-    }
-
-    this.apiService.verifyRequest(req.id, action, reason).subscribe({
-      next: () => {
-        this.loadRequests();
-        this.showToast('success', 'Berhasil', `Pengajuan berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}.`);
-      },
-      error: (err) => {
-        this.showToast('error', 'Gagal', err.error?.message || 'Gagal memproses pengajuan.');
-      }
-    });
   }
 
   processRequest(action: 'approve' | 'reject') {
@@ -541,10 +462,9 @@ export class AdminDashboardComponent implements OnInit {
       next: () => {
         this.selectedRequest.set(null);
         this.loadRequests();
-        this.showToast('success', 'Berhasil', `Pengajuan berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}.`);
       },
-      error: (err) => {
-        this.showToast('error', 'Gagal', err.error?.message || 'Gagal memproses pengajuan.');
+      error: () => {
+        alert('Gagal memproses pengajuan.');
       }
     });
   }
@@ -579,28 +499,24 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   deleteUser(id: number) {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return;
     const currentUsers = this.users();
     this.users.set(currentUsers.filter(u => u.id !== id));
     this.apiService.deleteUser(id).subscribe({
-      next: () => this.showToast('success', 'Berhasil', 'Pengguna berhasil dihapus.'),
+      next: () => {},
       error: (err) => {
         console.error('Gagal menghapus pengguna:', err);
-        this.showToast('error', 'Gagal', err.error?.message || 'Gagal menghapus pengguna.');
         this.loadUsers();
       }
     });
   }
 
   deleteRequest(id: number) {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')) return;
     const currentRequests = this.requests();
     this.requests.set(currentRequests.filter(r => r.id !== id));
     this.apiService.deleteRequest(id).subscribe({
-      next: () => this.showToast('success', 'Berhasil', 'Pengajuan berhasil dihapus.'),
+      next: () => {},
       error: (err) => {
         console.error('Gagal menghapus pengajuan:', err);
-        this.showToast('error', 'Gagal', err.error?.message || 'Gagal menghapus pengajuan.');
         this.loadRequests();
       }
     });
@@ -610,9 +526,8 @@ export class AdminDashboardComponent implements OnInit {
     if (this.userForm.valid) {
       this.isSubmitting.set(true);
       const payload = this.userForm.value;
-      const isEdit = !!this.editingUserId();
       
-      const request = isEdit
+      const request = this.editingUserId()
         ? this.apiService.updateUser(this.editingUserId()!, payload)
         : this.apiService.createUser(payload);
 
@@ -621,11 +536,10 @@ export class AdminDashboardComponent implements OnInit {
           this.isSubmitting.set(false);
           this.closeForm();
           this.loadUsers();
-          this.showToast('success', 'Berhasil', isEdit ? 'Pengguna berhasil diperbarui.' : 'Pengguna berhasil ditambahkan.');
         },
         error: (err) => {
           this.isSubmitting.set(false);
-          this.showToast('error', 'Gagal', err.error?.message || 'Gagal menyimpan pengguna.');
+          alert(err.error?.message || 'Gagal menyimpan pengguna.');
         }
       });
     }

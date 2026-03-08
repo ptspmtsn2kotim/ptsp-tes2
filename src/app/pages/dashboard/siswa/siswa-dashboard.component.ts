@@ -270,13 +270,7 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
   setupSocket() {
     const user = this.authService.currentUser();
     if (user && user.role === 'Siswa' && typeof window !== 'undefined') {
-      this.socket = io({ transports: ['polling'], reconnectionAttempts: 3 });
-      
-      this.socket.on('connect_error', () => {
-        console.warn('Socket connection failed, disabling real-time notifications.');
-        this.socket.disconnect();
-      });
-
+      this.socket = io({ transports: ['polling'] });
       this.socket.emit('join', user.id);
       
       this.socket.on('request_status_changed', (data) => {
@@ -314,7 +308,7 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
         serviceId: this.requestForm.value.serviceId,
         data: {
           description: this.requestForm.value.description
-        } as Record<string, unknown>
+        } as Record<string, any>
       };
 
       if (navigator.geolocation) {
@@ -340,7 +334,7 @@ export class SiswaDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private sendRequest(payload: { serviceId: string | null | undefined, data: Record<string, unknown> }) {
+  private sendRequest(payload: any) {
     this.apiService.createRequest(payload).subscribe({
       next: () => {
         this.isSubmitting.set(false);

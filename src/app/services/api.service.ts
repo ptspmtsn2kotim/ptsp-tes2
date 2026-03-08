@@ -42,9 +42,6 @@ export class ApiService {
 
   private getBaseUrl() {
     if (isPlatformServer(this.platformId)) {
-      if (typeof process !== 'undefined' && process.env['VERCEL_URL']) {
-        return `https://${process.env['VERCEL_URL']}`;
-      }
       const port = typeof process !== 'undefined' && process.env['PORT'] ? process.env['PORT'] : 3000;
       return `http://127.0.0.1:${port}`;
     }

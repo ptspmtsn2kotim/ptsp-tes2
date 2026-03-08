@@ -486,7 +486,7 @@ export class LandingComponent implements OnInit {
     }
   }
 
-  private sendRequest(payload: Record<string, unknown>) {
+  private sendRequest(payload: any) {
     this.apiService.submitPublicRequest(this.selectedService()!.id, payload).subscribe({
       next: () => {
         this.isSubmitting.set(false);
